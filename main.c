@@ -29,6 +29,8 @@ void remove_server(server*);
 void *server_thread();
 void *client_thread();
 
+struct sockaddr_in socket_address;
+
 // functions
 
 void add_server(void)
@@ -63,12 +65,21 @@ void *server_thread()
 	static u_short port_incr = 1;
 	
 	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	int broadcastEnable=1;
+	int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+	
+	if(ret==-1)
+	  {
+	    perror("setsockopt");
+	    pthread_exit(NULL);
+	  }
+
 
 	struct sockaddr_in socket_address;
 	memset(&socket_address, 0, sizeof(struct sockaddr_in));
 	socket_address.sin_family = AF_INET;
 	socket_address.sin_port = htons(STARTING_PORT + port_incr++);
-	socket_address.sin_addr.s_addr = INADDR_ANY;
+	socket_address.sin_addr.s_addr = INADDR_BROADCAST;
 
 	int err = bind(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
 	if(err == -1)
@@ -77,31 +88,13 @@ void *server_thread()
 		pthread_exit(NULL);
 	}
 
-	/*err = listen(sock, 0);
-	if(err == -1)
-	{
-		perror("Server listen");
-		pthread_exit(NULL);
-	}
-		
-	struct sockaddr_in client_address;
-	memset(&client_address, 0, sizeof(struct sockaddr_in));
-
-	socklen_t client_address_len = sizeof(struct sockaddr);
-	int sock_client = accept(sock, (struct sockaddr*)&client_address, &client_address_len);
-	if(sock_client == -1)
-	{
-		perror("Server accept");
-		pthread_exit(NULL);
-	}*/
-
 	struct sockaddr_in src;
 	socklen_t len = sizeof(src);
 	memset(&src, 0, len);
 		
 	char buff[150];
 	memset(&buff, 0, sizeof(buff));
-	recv(sock_client, &buff, sizeof(buff), 0, &src, len);
+	recvfrom(sock, &buff, sizeof(buff), 0, NULL, NULL);
 	printf("yo\n%s\n",buff);
 
 	close(sock);
@@ -111,22 +104,17 @@ void *server_thread()
 void *client_thread()
 {
 	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	int broadcastEnable=1;
+	int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+if(ret==-1)
+	  {
+	    perror("setsockopt");
+	    pthread_exit(NULL);
+	  }
 
-	struct sockaddr_in socket_address;
-	memset(&socket_address, 0, sizeof(struct sockaddr_in));
-	socket_address.sin_family = AF_INET;
-	socket_address.sin_port = htons(STARTING_PORT);
-	socket_address.sin_addr.s_addr = INADDR_BROADCAST;
-
-	int err = connect(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
-	if(err == -1)
-	{
-		perror("Client connection");
-		pthread_exit(NULL);
-	}
 		
 	char* msg = "message";
-	send(sock,&msg,sizeof(msg),0);
+	sendto(sock,&msg,sizeof(msg),0,(struct sockaddr*)&socket_address, sizeof(socket_address));
 
 	close(sock);
 
@@ -135,6 +123,11 @@ void *client_thread()
 
 int main(void)
 {
+	memset(&socket_address, 0, sizeof(struct sockaddr_in));
+	socket_address.sin_family = AF_INET;
+	socket_address.sin_port = htons(STARTING_PORT);
+	socket_address.sin_addr.s_addr = INADDR_BROADCAST;
+
 	pthread_t client;
 
 	nb_servers = 1;
