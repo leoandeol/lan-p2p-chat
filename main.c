@@ -1,3 +1,4 @@
+
 #include <stdio.h> //printf
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -12,6 +13,14 @@
  * Main thread is the client
  * Secondary is the server, there will be one server thread per other machine contacted
  **************/
+
+#define BUF_LEN 512
+
+#define CLR "\x1B[0m"
+#define RED "\x1B[31m"
+#define GRN "\x1B[32m"
+#define BLU "\x1B[34m"
+#define YEL "\x1B[33m"
 
 typedef struct server {
   pthread_t thread;
@@ -29,10 +38,20 @@ void add_server(void);
 void remove_server(server*);
 void *server_thread();
 void *client_thread();
+void clr(void);
 
 struct sockaddr_in socket_address;
 
+// vars
+
+char nick[20];
+
 // functions
+
+void clr(void)
+{
+  printf("\e[2J\e[H");
+}
 
 void add_server(void)
 {
@@ -76,32 +95,25 @@ void *server_thread()
       perror("setsockopt");
       pthread_exit(NULL);
     }
-
-
-  /*struct sockaddr_in socket_address;
-  memset(&socket_address, 0, sizeof(struct sockaddr_in));
-  socket_address.sin_family = AF_INET;
-  socket_address.sin_port = htons(STARTING_PORT + port_incr);
-  socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);*/
-
+  
   int err = bind(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
   if(err == -1)
     {
       perror("Server bind");
       pthread_exit(NULL);
     }
-
+  
   struct sockaddr_in src;
   socklen_t len = sizeof(src);
   memset(&src, 0, len);
-		
-  char buff[150];
-  memset(&buff, 0, sizeof(buff));
+  
+  char buff[BUF_LEN];
+  memset(&buff, 0, BUF_LEN);
   printf("Waiting for message ...\n");
   u_int length = sizeof(src);
   while(1)
   {
-  recvfrom(sock, buff, sizeof(buff), 0, (struct sockaddr *)&src, &length);
+  recvfrom(sock, buff, BUF_LEN, 0, (struct sockaddr *)&src, &length);
   printf("Message received :\n");
   printf("%s\n",buff);
   }
@@ -122,11 +134,14 @@ void *client_thread()
       pthread_exit(NULL);
     }
 
-  printf("Sending message ...\n");
-  char* msg = "messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+  char msg[BUF_LEN];
+  
   while(1)
   {
-	sendto(sock,msg,sizeof(msg),0,(struct sockaddr*)&socket_address, sizeof(socket_address));
+    printf("Please enter a message\n");
+    scanf("%s",msg);
+    printf("Sending message ...\n");
+	sendto(sock,msg,BUF_LEN,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
 	sleep(1);
   }
   printf("Message sent, closing client socket ...\n");
@@ -137,7 +152,14 @@ void *client_thread()
 
 int main(void)
 {
+  clr();
   printf("Starting ...\n");
+  //TODO welcome screen
+
+  printf("Choose a nickname\n");
+  scanf("%s",nick);
+
+  
   memset(&socket_address, 0, sizeof(struct sockaddr_in));
   socket_address.sin_family = AF_INET;
   socket_address.sin_port = htons(STARTING_PORT);
