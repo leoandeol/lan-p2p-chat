@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <string.h> //memset
 #include <unistd.h> //close
+#include <time.h> // sleep
 
 /**********
  * Main thread is the client
@@ -77,11 +78,11 @@ void *server_thread()
     }
 
 
-  struct sockaddr_in socket_address;
+  /*struct sockaddr_in socket_address;
   memset(&socket_address, 0, sizeof(struct sockaddr_in));
   socket_address.sin_family = AF_INET;
-  socket_address.sin_port = htons(STARTING_PORT + port_incr++);
-  socket_address.sin_addr.s_addr = INADDR_BROADCAST;
+  socket_address.sin_port = htons(STARTING_PORT + port_incr);
+  socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);*/
 
   int err = bind(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
   if(err == -1)
@@ -97,9 +98,14 @@ void *server_thread()
   char buff[150];
   memset(&buff, 0, sizeof(buff));
   printf("Waiting for message ...\n");
-  recvfrom(sock, &buff, sizeof(buff), 0, NULL, NULL);
-  printf("Message received\n");
-  printf("yo\n%s\n",buff);
+  u_int length = sizeof(src);
+  while(1)
+  {
+  recvfrom(sock, buff, sizeof(buff), 0, (struct sockaddr *)&src, &length);
+  printf("Message received :\n");
+  printf("%s\n",buff);
+  }
+  printf("Closing server socket ...\n");
   close(sock);
   pthread_exit(NULL);
 }
@@ -117,9 +123,13 @@ void *client_thread()
     }
 
   printf("Sending message ...\n");
-  char* msg = "message";
-  sendto(sock,&msg,sizeof(msg),0,(struct sockaddr*)&socket_address, sizeof(socket_address));
-  printf("Message sent, closing socket ...\n");
+  char* msg = "messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+  while(1)
+  {
+	sendto(sock,msg,sizeof(msg),0,(struct sockaddr*)&socket_address, sizeof(socket_address));
+	sleep(1);
+  }
+  printf("Message sent, closing client socket ...\n");
   close(sock);
 
   pthread_exit(NULL);
@@ -131,15 +141,15 @@ int main(void)
   memset(&socket_address, 0, sizeof(struct sockaddr_in));
   socket_address.sin_family = AF_INET;
   socket_address.sin_port = htons(STARTING_PORT);
-  socket_address.sin_addr.s_addr = INADDR_BROADCAST;
+  socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
   pthread_t client;
 
   nb_servers = 1;
 	
-  pthread_create(&client, NULL, client_thread, NULL);
   pthread_create(&servers.thread, NULL, server_thread, NULL);
-         
+  pthread_create(&client, NULL, client_thread, NULL);
+
   pthread_join(client, NULL);
   pthread_join(servers.thread,NULL); // temporary
 	
