@@ -16,35 +16,35 @@
 
 #define BUF_LEN 512
 
+#define PORT 21487
+
 #define CLR "\x1B[0m"
 #define RED "\x1B[31m"
 #define GRN "\x1B[32m"
 #define BLU "\x1B[34m"
 #define YEL "\x1B[33m"
 
-typedef struct server {
+// structs
+
+/*typedef struct server {
   pthread_t thread;
   struct server* next;
   struct server* previous;
-} server;
-
-#define STARTING_PORT 21487
-
-server servers;
-u_short nb_servers;
+} server;*/
 
 // prototypes
+
 void add_server(void);
 void remove_server(server*);
 void *server_thread();
 void *client_thread();
 void clr(void);
 
+// globals
+
 struct sockaddr_in socket_address;
-
-// vars
-
 char nick[20];
+FILE* log; //todo
 
 // functions
 
@@ -137,16 +137,16 @@ void *client_thread()
   char msg[BUF_LEN];
   
   while(1)
-  {
-    printf("Please enter a message\n");
-    fgets(msg,BUF_LEN,stdin);
-    printf("Sending message ...\n");
-	sendto(sock,msg,BUF_LEN,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
-	sleep(1);
-  }
+    {
+      printf("Please enter a message\n");
+      fgets(msg,BUF_LEN,stdin);
+      printf("Sending message ...\n");
+      sendto(sock,msg,BUF_LEN,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
+      sleep(1);
+    }
   printf("Message sent, closing client socket ...\n");
   close(sock);
-
+  
   pthread_exit(NULL);
 }
 
@@ -165,15 +165,15 @@ int main(void)
   socket_address.sin_port = htons(STARTING_PORT);
   socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-  pthread_t client;
+  pthread_t client,server;
 
   nb_servers = 1;
 	
-  pthread_create(&servers.thread, NULL, server_thread, NULL);
+  pthread_create(&server, NULL, server_thread, NULL);
   pthread_create(&client, NULL, client_thread, NULL);
 
   pthread_join(client, NULL);
-  pthread_join(servers.thread,NULL); // temporary
+  pthread_join(server,NULL); // temporary
 	
   return 0;
 }
