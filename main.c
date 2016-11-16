@@ -139,7 +139,7 @@ void *client_thread()
   while(1)
   {
     printf("Please enter a message\n");
-    scanf("%s",msg);
+    fgets(msg,BUF_LEN,stdin);
     printf("Sending message ...\n");
 	sendto(sock,msg,BUF_LEN,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
 	sleep(1);
