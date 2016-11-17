@@ -24,65 +24,39 @@
 #define BLU "\x1B[34m"
 #define YEL "\x1B[33m"
 
-// structs
-
-/*typedef struct server {
-  pthread_t thread;
-  struct server* next;
-  struct server* previous;
-} server;*/
-
 // prototypes
 
-void add_server(void);
-void remove_server(server*);
-void *server_thread();
-void *client_thread();
+void get_line(char*,size_t);
+void *server_thread(void);
+void *client_thread(void);
 void clr(void);
+void gui(void);
 
 // globals
 
 struct sockaddr_in socket_address;
 char nick[20];
-FILE* log; //todo
+char msg_to_send[BUF_LEN];
+char msg_list[150][BUF_LEN];
+FILE* f_log; //todo
 
 // functions
+
+void get_line(char* m,size_t s)
+{
+  // BUF_LEN or sizeof(m)?
+  if(fgets(m,s,stdin)==NULL)
+    {
+      fprintf(f_log,"Error reading inputs from stdin\n");
+    }
+}
 
 void clr(void)
 {
   printf("\e[2J\e[H");
 }
 
-void add_server(void)
-{
-  printf("Adding new server\n");
-  server tmp;
-  pthread_create(&tmp.thread, NULL, server_thread, NULL);
-  tmp.next = &servers;
-  servers.previous = &tmp;
-  servers = tmp;
-  nb_servers++;
-}
-
-void remove_server(server* serv)
-{
-  printf("Removing server\n");
-  if(serv->previous != NULL && serv->next != NULL)
-    {
-      serv->previous->next = serv->next;
-      serv->next->previous = serv->previous;
-    }
-  else if(serv->previous != NULL)
-    {
-      serv->previous->next = NULL;
-    }
-  else if(serv->next != NULL)
-    {
-      serv->next->previous = NULL;
-    }
-}
-
-void *server_thread()
+void *server_thread(void)
 {
   static u_short port_incr = 1;
   printf("Starting server number %d\n",port_incr);
@@ -122,7 +96,7 @@ void *server_thread()
   pthread_exit(NULL);
 }
 
-void *client_thread()
+void *client_thread(void)
 {
   printf("Starting client\n");
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -139,7 +113,7 @@ void *client_thread()
   while(1)
     {
       printf("Please enter a message\n");
-      fgets(msg,BUF_LEN,stdin);
+      get_line(msg,BUF_LEN);
       printf("Sending message ...\n");
       sendto(sock,msg,BUF_LEN,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
       sleep(1);
@@ -150,24 +124,30 @@ void *client_thread()
   pthread_exit(NULL);
 }
 
+void gui(void)
+{
+
+}
+
 int main(void)
 {
+  f_log = fopen("log","w+");
+
+
   clr();
   printf("Starting ...\n");
   //TODO welcome screen
 
-  printf("Choose a nickname\n");
-  scanf("%s",nick);
+  printf("Choose a nickname : \n");
+  get_line(nick,sizeof(nick));
 
   
   memset(&socket_address, 0, sizeof(struct sockaddr_in));
   socket_address.sin_family = AF_INET;
-  socket_address.sin_port = htons(STARTING_PORT);
+  socket_address.sin_port = htons(PORT);
   socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
   pthread_t client,server;
-
-  nb_servers = 1;
 	
   pthread_create(&server, NULL, server_thread, NULL);
   pthread_create(&client, NULL, client_thread, NULL);
