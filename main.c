@@ -1,14 +1,14 @@
-
 #include <stdio.h> //printf
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/types.h>
-#include <pthread.h>
-#include <string.h> //memset
+#include <pthread.h> //pthread
+#include <string.h> //memset, strcpy
 #include <unistd.h> //close
 #include <time.h> // sleep
 #include <sys/ioctl.h>
+#include <ncurses.h>
 
 /**********
  * Main thread is the client
@@ -25,6 +25,10 @@
 #define BLU "\x1B[34m"
 #define YEL "\x1B[33m"
 
+#define NICK_LEN 20
+#define MAX_CLIENTS 50
+#define MAX_LINES 60
+
 // prototypes
 
 void get_line(char*,size_t);
@@ -36,19 +40,44 @@ void gui();
 // globals
 
 struct sockaddr_in socket_address;
-char nick[20];
+char nick[NICK_LEN];
 char msg_to_send[BUF_LEN];
 char msg_list[150][BUF_LEN];
-FILE* f_log; //todo
+FILE* f_log;
 int update = 0;
 int running = 1;
 int new_message = 0;
+char nicks[MAX_CLIENTS][NICK_LEN];
+
+
+/////////////////////////////
+/// Message history manager
+/////////////////////////////
+
+char history[MAX_LINES][BUF_LEN];
+
+void hist_init()
+{
+  memset(&history,0,sizeof(history));
+  for(int i = 0; i < MAX_LINES; i++)
+    {
+      strcpy(history[i],"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+    }
+}
+    
+void hist_push_msg(char* m)
+{
+  for(int i =0; i < MAX_LINES-1; i++)
+    {
+      strcpy(history[i+1],history[i]);
+    }
+  strcpy(m,history[MAX_LINES-1]);
+}
 
 // functions
 
 void get_line(char* m,size_t s)
 {
-  // BUF_LEN or sizeof(m)?
   if(fgets(m,s,stdin)==NULL)
     {
       fprintf(f_log,"Error reading inputs from stdin\n");
@@ -126,7 +155,7 @@ void *client_thread()
 	  memset(msg_to_send, 0, BUF_LEN);
 	}
     }
-  printf("Message sent, closing client socket ...\n");
+  fprintf(f_log,"Message sent, closing client socket ...\n");
   close(sock);
   
   pthread_exit(NULL);
@@ -140,7 +169,10 @@ void gui()
   int rows = 0;
   int chat_size = 0;
   int members_size = 20;
-	
+
+  hist_init();
+  initscr();
+  
   while(running)
     {
       //BEFORE
@@ -157,34 +189,39 @@ void gui()
 	  //CHAT : filling space
 	  for(int i = 0; i < chat_size; i++)
 	    {
-	      printf(" ");
+	      //printf(" ");
 	    }
+	  printw("%s",history[l]);
 
 	  //SEPARATION
-	  printf("#");
+	  printw("#");
 			
 	  //MEMBERS : filling space
 	  for(int i = 0; i < members_size; i++)
 	    {
-	      printf(" ");
+	      printw(" ");
 	    }
 
 	  //BACKSLASH
-	  printf("\n");
+	  printw("\n");
 	}
-      for(int i = 0; i < cols; i++) { printf("#");}
-      printf("\n");
+      for(int i = 0; i < cols; i++) { printw("#");}
+      printw("");
 
       // UPDATE ONLY IF NEW LINE OR UPDATE = 1 TODOTODOTDO
-      get_line(msg_to_send,BUF_LEN);
+      //get_line(msg_to_send,BUF_LEN);
+      int c = getch();
+      c = c>2;
       new_message = 1;
-
+      refresh();
+      
       //IF GETLINE THEN SET msg_to_send to msg and set new_message to 1
 		
       //AFTER
       //Give back cpu time, sleep some 20ms
       usleep(20000);
     }
+  endwin();
 }
 
 int main()
@@ -193,9 +230,7 @@ int main()
 
 
   fprintf(f_log,"Starting ...\n");
-
-  //TODO close f_log or it will fucking not write
-
+  
   printf("************************************************************************\n");
   printf("* LAN P2P Chat | by Léo Andéol | GNU GPL                               *\n");
   printf("* An application written in C, using UDP sockets and broadcasts        *\n");
@@ -220,6 +255,8 @@ int main()
 	
   pthread_join(client, NULL);
   pthread_join(server,NULL); // temporary
-	
+
+  fclose(f_log);
+  
   return 0;
 }
