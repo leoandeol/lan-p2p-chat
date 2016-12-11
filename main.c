@@ -61,8 +61,8 @@ void hist_init(unsigned short rows)
 	for(int i = 0; i < rows; i++)
 	{
 		history[i] = malloc(sizeof(char)*BUF_LEN);
+		memset(history[i],0,sizeof(char)*BUF_LEN);
 	}
-	memset(&history,0,sizeof(history));
 	for(int i = 0; i < rows; i++)
     {
 		strcpy(history[i],"hello world !\n");
@@ -73,16 +73,23 @@ void hist_update(unsigned short rows, unsigned short last_rows)
 {
 	if(last_rows < rows)
 	{
-		// memory leak
-		for(int i = 0; i < last_rows; i++)
-		{
-			// waste of time
-			history[i] = realloc(history[i],sizeof(char)*BUF_LEN);
-		}
 		// memory leak here, if terminal reduced then made big again, malloc'd twice
 		for(int i = last_rows; i < rows; i++)
 		{
 			history[i] = malloc(sizeof(char)*BUF_LEN);
+			memset(history[i],0,sizeof(char)*BUF_LEN);
+		}
+	}
+	else if (last_rows > rows)
+	{
+		//decaller
+	    for(int i = last_rows-1; i > (last_rows-rows); i--)
+		{
+			history[rows-i] = history[i];
+		}
+		for(int i = rows; i < last_rows; i++)
+		{
+			free(history[i]);
 		}
 	}
 	history = realloc(history,sizeof(char*)*rows);
@@ -188,25 +195,22 @@ void gui()
 {
 	short running = 1;
     int cols = 0;
-	int rows = 0, last_rows = 1000;
-	int chat_size = 0;
+	int rows, last_rows;
+	int chat_size = 25;
 	const int members_size = 20;
 
-	hist_init(rows);
 	initscr();
-  
+
+	getmaxyx(stdscr,rows,cols);
+	last_rows=rows;
+
+	hist_init(rows);
+	
 	while(running)
     {
 		//BEFORE
 		//clr(); replaced by ncurses, refresh
 		refresh();
-		getmaxyx(stdscr,rows,cols);
-
-		if(last_rows!=rows)
-		{
-			hist_update(rows,last_rows);
-		}
-		last_rows = rows;
 		
 		
 		chat_size = cols - members_size - 1;
@@ -244,10 +248,15 @@ void gui()
 		new_message = 1;
       
 		//IF GETLINE THEN SET msg_to_send to msg and set new_message to 1
+
 		
-		//AFTER
-		//Give back cpu time, sleep some 20ms
-		usleep(20000);
+		getmaxyx(stdscr,rows,cols);
+
+		if(last_rows!=rows)
+		{
+			hist_update(rows,last_rows);
+		}
+		last_rows = rows;
     }
 	endwin();
 }
