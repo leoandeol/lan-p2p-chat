@@ -43,7 +43,7 @@ char nick[NICK_LEN];
 char msg_to_send[BUF_LEN];
 FILE* f_log;
 int update = 0;
-int running = 1;
+short running = 1;
 int new_message = 0;
 char nicks[MAX_CLIENTS][NICK_LEN];
 
@@ -121,11 +121,6 @@ void get_line(char* m,size_t s)
     }
 }
 
-void clr()
-{
-	printf("\e[2J\e[H");
-}
-
 void *server_thread()
 {
 	static u_short port_incr = 1;
@@ -200,7 +195,6 @@ void *client_thread()
 
 void gui()
 {
-	short running = 1;
 	int cols = 0;
 	int rows, last_rows;
 	int chat_size = 25;
