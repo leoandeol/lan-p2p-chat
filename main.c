@@ -27,7 +27,6 @@
 
 #define NICK_LEN 20
 #define MAX_CLIENTS 50
-#define MAX_LINES 60
 
 // prototypes
 
@@ -54,246 +53,253 @@ char nicks[MAX_CLIENTS][NICK_LEN];
 /////////////////////////////
 
 char **history;
+unsigned short hist_len;
 
 void hist_init(unsigned short rows)
 {
-  history = malloc(sizeof(char*)*rows);
-  for(int i = 0; i < rows; i++)
+	//two last lines used for the gui
+	rows-=2;
+	hist_len = rows;
+	history = malloc(sizeof(char*)*rows);
+	for(int i = 0; i < rows; i++)
     {
-      history[i] = malloc(sizeof(char)*BUF_LEN);
-      memset(history[i],0,sizeof(char)*BUF_LEN);
+		history[i] = malloc(sizeof(char)*BUF_LEN);
+		memset(history[i],0,sizeof(char)*BUF_LEN);
     }
-  for(int i = 0; i < rows; i++)
+	for(int i = 0; i < rows; i++)
     {
-      strcpy(history[i],"hello world !\n");
+		strcpy(history[i],"hello world !\n");
     }
 }
 
 void hist_update(unsigned short rows, unsigned short last_rows)
 {
-  if(last_rows < rows)
+	//two last lines used for the gui
+	rows-=2;
+	last_rows-=3;
+	hist_len = rows;
+	if(last_rows < rows)
     {
-      // memory leak here, if terminal reduced then made big again, malloc'd twice
-      for(int i = last_rows; i < rows; i++)
-	{
-	  history[i] = malloc(sizeof(char)*BUF_LEN);
-	  memset(history[i],0,sizeof(char)*BUF_LEN);
-	}
+		// memory leak here, if terminal reduced then made big again, malloc'd twice
+		for(int i = last_rows; i < rows; i++)
+		{
+			history[i] = malloc(sizeof(char)*BUF_LEN);
+			memset(history[i],0,sizeof(char)*BUF_LEN);
+		}
     }
-  else if (last_rows > rows)
+	else if (last_rows > rows)
     {
-      //decaller
-      for(int i = last_rows-1; i > (last_rows-rows); i--)
-	{
-	  history[rows-i] = history[i];
-	}
-      for(int i = rows; i < last_rows; i++)
-	{
-	  free(history[i]);
-	}
+		//decaller
+		for(int i = last_rows-1; i > (last_rows-rows); i--)
+		{
+			history[rows-i] = history[i];
+		}
+		for(int i = rows; i < last_rows; i++)
+		{
+			free(history[i]);
+		}
     }
-  history = realloc(history,sizeof(char*)*rows);
+	history = realloc(history,sizeof(char*)*rows);
 }
     
 void hist_push_msg(char* m)
 {
-  for(int i =0; i < MAX_LINES-1; i++)
+	for(int i =0; i < hist_len-1; i++)
     {
-      strcpy(history[i+1],history[i]);
+		strcpy(history[i],history[i+1]);
     }
-  strcpy(m,history[MAX_LINES-1]);
+	strcpy(history[hist_len-1],m);
 }
 
 // functions
 
 void get_line(char* m,size_t s)
 {
-  if(fgets(m,s,stdin)==NULL)
+	if(fgets(m,s,stdin)==NULL)
     {
-      fprintf(f_log,"Error reading inputs from stdin\n");
+		fprintf(f_log,"Error reading inputs from stdin\n");
     }
 }
 
 void clr()
 {
-  printf("\e[2J\e[H");
+	printf("\e[2J\e[H");
 }
 
 void *server_thread()
 {
-  static u_short port_incr = 1;
-  fprintf(f_log,"Starting server number %d\n",port_incr);
-  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  int broadcastEnable=1;
-  int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+	static u_short port_incr = 1;
+	fprintf(f_log,"Starting server number %d\n",port_incr);
+	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	int broadcastEnable=1;
+	int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
 	
-  if(ret==-1)
+	if(ret==-1)
     {
-      perror("setsockopt");
-      pthread_exit(NULL);
+		perror("setsockopt");
+		pthread_exit(NULL);
     }
   
-  int err = bind(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
-  if(err == -1)
+	int err = bind(sock, (struct sockaddr*)&socket_address, sizeof(struct sockaddr));
+	if(err == -1)
     {
-      perror("Server bind");
-      pthread_exit(NULL);
+		perror("Server bind");
+		pthread_exit(NULL);
     }
   
-  struct sockaddr_in src;
-  socklen_t len = sizeof(src);
-  memset(&src, 0, len);
+	struct sockaddr_in src;
+	socklen_t len = sizeof(src);
+	memset(&src, 0, len);
   
-  char buff[BUF_LEN];
-  memset(buff, 0, BUF_LEN);
-  fprintf(f_log,"Waiting for message ...\n");
-  u_int length = sizeof(src);
-  while(running)
+	char buff[BUF_LEN];
+	memset(buff, 0, BUF_LEN);
+	fprintf(f_log,"Waiting for message ...\n");
+	u_int length = sizeof(src);
+	while(running)
     {
-      recvfrom(sock, buff, BUF_LEN, 0, (struct sockaddr *)&src, &length);
-      update = 1;
-      fprintf(f_log,"Message received : %s\n",buff);
-      //message list
+		recvfrom(sock, buff, BUF_LEN, 0, (struct sockaddr *)&src, &length);
+		update = 1;
+		fprintf(f_log,"Message received : %s\n",buff);
+		//message list
     }
-  printf("Closing server socket ...\n");
-  close(sock);
-  pthread_exit(NULL);
+	printf("Closing server socket ...\n");
+	close(sock);
+	pthread_exit(NULL);
 }
 
 void *client_thread()
 {
-  fprintf(f_log,"Starting client\n");
-  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  int broadcastEnable=1;
-  int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
-  if(ret==-1)
+	fprintf(f_log,"Starting client\n");
+	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	int broadcastEnable=1;
+	int ret=setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+	if(ret==-1)
     {
-      perror("setsockopt");
-      pthread_exit(NULL);
+		perror("setsockopt");
+		pthread_exit(NULL);
     }
 
-  while(running)
+	while(running)
     {
-      if(new_message)
-	{
-	  time_t val = time(NULL);
-	  struct tm* tm_st = localtime(&val);
-	  char msg[BUF_LEN+100];
-	  snprintf(msg,BUF_LEN+100,"[%d:%d:%d] %s : %s",tm_st->tm_hour, tm_st->tm_min, tm_st->tm_sec, nick, msg_to_send);
-	  fprintf(f_log,"Sending message : %s\n",msg);
-	  sendto(sock,msg,BUF_LEN+100,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
-	  memset(msg_to_send, 0, BUF_LEN);
-	}
+		if(new_message)
+		{
+			time_t val = time(NULL);
+			struct tm* tm_st = localtime(&val);
+			char msg[BUF_LEN+100];
+			snprintf(msg,BUF_LEN+100,"[%d:%d:%d] %s : %s",tm_st->tm_hour, tm_st->tm_min, tm_st->tm_sec, nick, msg_to_send);
+			fprintf(f_log,"Sending message : %s\n",msg);
+			sendto(sock,msg,BUF_LEN+100,0,(struct sockaddr*)&socket_address, sizeof(socket_address));
+			memset(msg_to_send, 0, BUF_LEN);
+		}
     }
-  fprintf(f_log,"Message sent, closing client socket ...\n");
-  close(sock);
+	fprintf(f_log,"Message sent, closing client socket ...\n");
+	close(sock);
   
-  pthread_exit(NULL);
+	pthread_exit(NULL);
 }
 
 void gui()
 {
-  short running = 1;
-  int cols = 0;
-  int rows, last_rows;
-  int chat_size = 25;
-  const int members_size = 20;
+	short running = 1;
+	int cols = 0;
+	int rows, last_rows;
+	int chat_size = 25;
+	const int members_size = 20;
+	char buff[BUF_LEN];
+	initscr();
 
-  initscr();
+	getmaxyx(stdscr,rows,cols);
+	last_rows=rows;
 
-  getmaxyx(stdscr,rows,cols);
-  last_rows=rows;
-
-  hist_init(rows);
+	hist_init(rows);
 	
-  while(running)
+	while(running)
     {
-      //BEFORE
-      //clr(); replaced by ncurses, refresh
-      refresh();
+		//BEFORE
+		//clr(); replaced by ncurses, refresh
+		clear();
+		refresh();
 		
 		
-      chat_size = cols - members_size - 1;
-      //DURING
+		chat_size = cols - members_size - 1;
+		//DURING
 
-      for(int r = 0; r < rows-2; r++)
-	{
-	  move(r,0);
-	  printw("%d",r);
-	  //CHAT : filling space
-	  for(int i = 0; i < chat_size; i++)
-	    {
-	      //printf(" ");
-	    }
-	  printw("%s",history[r]);
+		for(int r = 0; r < rows-2; r++)
+		{
+			move(r,0);
+			printw("%d",r);
+			//CHAT : filling space
+			for(int i = 0; i < chat_size; i++)
+			{
+				//printf(" ");
+			}
+			printw("%s",history[r]);
 
-	  //SEPARATION
-	  mvprintw(r,chat_size,"#");
+			//SEPARATION
+			mvprintw(r,chat_size,"#");
 			
-	  //MEMBERS : filling space
+			//MEMBERS : filling space
 		    
-	  printw("                    ");
+			printw("                    ");
 			
-	}
-      move(rows-2,0);
-      for(int i = 0; i < cols; i++) { printw("#");}
-
-      move(rows-1,0);
-      printw("type here");
+		}
+		move(rows-2,0);
+		for(int i = 0; i < cols; i++) { printw("#");}
 		
-      // UPDATE ONLY IF NEW LINE OR UPDATE = 1 TODOTODOTDO
-      //get_line(msg_to_send,BUF_LEN);
-      int c = getch();
-      c = c>2;
-      new_message = 1;
-      
-      //IF GETLINE THEN SET msg_to_send to msg and set new_message to 1
+		// UPDATE ONLY IF NEW LINE OR UPDATE = 1 TODOTODOTDO
+		//get_line(msg_to_send,BUF_LEN);
 
+		memset(buff,0,sizeof(buff));
+		mvgetstr(rows-1,0,buff);
+		new_message = 1;
+		strcpy(msg_to_send,buff);
+		//IF GETLINE THEN SET msg_to_send to msg and set new_message to 1
+		hist_push_msg(buff);
 		
-      getmaxyx(stdscr,rows,cols);
+		getmaxyx(stdscr,rows,cols);
 
-      if(last_rows!=rows)
-	{
-	  hist_update(rows,last_rows);
-	}
-      last_rows = rows;
+		if(last_rows!=rows)
+		{
+			hist_update(rows,last_rows);
+		}
+		last_rows = rows;
     }
-  endwin();
+	endwin();
 }
 
 int main()
 {
-  f_log = fopen("log","w+");
+	f_log = fopen("log","w+");
 
 
-  fprintf(f_log,"Starting ...\n");
+	fprintf(f_log,"Starting ...\n");
   
-  printf("************************************************************************\n");
-  printf("* LAN P2P Chat | by Léo Andéol | GNU GPL                               *\n");
-  printf("* An application written in C, using UDP sockets and broadcasts        *\n");
-  printf("* Source : http://github.com/leoandeol/lan-p2p-chat/                   *\n");
-  printf("************************************************************************\n");
+	printf("************************************************************************\n");
+	printf("* LAN P2P Chat | by Léo Andéol | GNU GPL                               *\n");
+	printf("* An application written in C, using UDP sockets and broadcasts        *\n");
+	printf("* Source : http://github.com/leoandeol/lan-p2p-chat/                   *\n");
+	printf("************************************************************************\n");
 	
-  printf("Choose a nickname : \n");
-  get_line(nick,sizeof(nick));
+	printf("Choose a nickname : \n");
+	get_line(nick,sizeof(nick));
 
   
-  memset(&socket_address, 0, sizeof(struct sockaddr_in));
-  socket_address.sin_family = AF_INET;
-  socket_address.sin_port = htons(PORT);
-  socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+	memset(&socket_address, 0, sizeof(struct sockaddr_in));
+	socket_address.sin_family = AF_INET;
+	socket_address.sin_port = htons(PORT);
+	socket_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-  pthread_t client,server;
+	pthread_t client,server;
 	
-  pthread_create(&server, NULL, server_thread, NULL);
-  pthread_create(&client, NULL, client_thread, NULL);
+	pthread_create(&server, NULL, server_thread, NULL);
+	pthread_create(&client, NULL, client_thread, NULL);
 
-  gui();
+	gui();
 	
-  pthread_join(client, NULL);
-  pthread_join(server,NULL);
+	pthread_join(client, NULL);
+	pthread_join(server,NULL);
 
-  fclose(f_log);
+	fclose(f_log);
   
-  return 0;
+	return 0;
 }
