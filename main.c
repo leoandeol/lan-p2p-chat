@@ -15,6 +15,8 @@
  * Secondary is the server, there will be one server thread per other machine contacted
  **************/
 
+// TODO : timestamp, fix the bug when the terminal is resized, add nicknames management
+
 #define BUF_LEN 512
 
 #define PORT 21487
@@ -68,7 +70,7 @@ void hist_init(unsigned short rows)
     }
 	for(int i = 0; i < rows; i++)
     {
-		strcpy(history[i],"hello world !\n");
+		strcpy(history[i],"");
     }
 }
 
@@ -221,7 +223,7 @@ void gui()
 		for(int r = 0; r < rows-2; r++)
 		{
 			move(r,0);
-			printw("%d",r);
+			printw("%d:",r);
 			//CHAT : filling space
 			for(int i = 0; i < chat_size; i++)
 			{
