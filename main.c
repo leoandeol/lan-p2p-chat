@@ -125,7 +125,7 @@ void get_line(char* m,size_t s)
 
 void *server_thread()
 {
-	static u_short port_incr = 1;
+	static unsigned short port_incr = 1;
 	fprintf(f_log,"Starting server number %d\n",port_incr);
 	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	int broadcastEnable=1;
@@ -151,7 +151,7 @@ void *server_thread()
 	char buff[BUF_LEN];
 	memset(buff, 0, BUF_LEN);
 	fprintf(f_log,"Waiting for message ...\n");
-	u_int length = sizeof(src);
+	unsigned int length = sizeof(src);
 	while(running)
     {
 		recvfrom(sock, buff, BUF_LEN, 0, (struct sockaddr *)&src, &length);
